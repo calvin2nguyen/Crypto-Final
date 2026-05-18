@@ -1,6 +1,7 @@
 import socket
 import threading
-from client_handler import ClientHandler
+from src.server.client_handler import ClientHandler
+from src.server.account_db import AccountDatabase
 
 class BankServer:
                 
@@ -12,6 +13,7 @@ class BankServer:
                 socket.AF_INET,
                 socket.SOCK_STREAM
             )
+            self.account_db = AccountDatabase()
         def start(self):
             self.server_socket.bind((self.host,self.port))
             self.server_socket.listen()
@@ -19,7 +21,8 @@ class BankServer:
 
             while True:
                 client_socket, addr = self.server_socket.accept()
-                handler = ClientHandler(client_socket=client_socket,address=addr)
+                handler = ClientHandler(client_socket=client_socket,
+                                        address=addr,account_db=self.account_db)
                 print(f"Connected to : {addr}")
                 thread = threading.Thread(
                      target=handler.handle

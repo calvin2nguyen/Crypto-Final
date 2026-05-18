@@ -1,5 +1,3 @@
-
-
 class AccountDatabase:
     def __init__(self):
 
@@ -31,7 +29,7 @@ class AccountDatabase:
         current_balance = self.accounts[user_id]["balance"]
         print(f"New balance: {current_balance}")
 
-    def withraw(self,user_id,withraw_ammount):
+    def withdraw(self,user_id,withraw_ammount):
         current_balance = self.accounts[user_id]["balance"]
         if(withraw_ammount > current_balance):
             print("Withraw ammount exceeds current balance")

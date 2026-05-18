@@ -1,6 +1,5 @@
-# server/client_handler.py
-
 from src.server.auth import Authenticator
+from src.crypto.signatures import verify_signature
 
 from src.crypto.key_manager import ( load_private_key, load_public_key)
 from src.crypto.encrypt import encrypt_message
@@ -17,9 +16,9 @@ class ClientHandler:
         self.auth = Authenticator()
 
         self.bank_private_key = load_private_key("keys/bank_private.pem")
-
+        self.atm_encryption_key = None
+        self.atm_signature_key = None
         self.atm_id = None
-        self.atm_public_key = None
         self.user_id = None
         self.authenticated = False
 
@@ -39,34 +38,70 @@ class ClientHandler:
             print(f"Disconencted: {self.address}")
 
     def authenticate_atm(self):
-        encrypted_atm_id = self.client_socket.recv(4096)
+
+        algorithm = (
+            self.client_socket.recv(16)
+            .decode()
+            .strip()
+        )
+
+        encrypted_atm_id = self.client_socket.recv(256)
+    
+        signature = self.client_socket.recv(256)
+        signature = signature.rstrip(b"\0")
 
         atm_id = decrypt_message(
             self.bank_private_key,
             encrypted_atm_id
         )
 
-        if not self.auth.is_valid_atm(atm_id):
+        if not self.auth.atm_valid(atm_id):
             raise Exception("Invalid ATM")
 
         self.atm_id = atm_id
 
-        atm_public_key_path = self.auth.get_atm_public_key_path(atm_id)
-        self.atm_public_key = load_public_key(atm_public_key_path)
+        self.atm_encryption_key = load_public_key(
+            f"keys/{atm_id.lower()}_public.pem"
+        )
 
-        self.send_secure_message("ATM authenticated")
+        if algorithm == "DSA":
 
-        print(f"AUTH SUCCESS: {atm_id}")
+            self.atm_signature_key = load_public_key(
+                f"keys/{atm_id.lower()}_dsa_public.pem"
+            )
+
+        else:
+
+            self.atm_signature_key = load_public_key(
+                f"keys/{atm_id.lower()}_public.pem"
+            )
+
+
+        valid_signature = verify_signature(
+            self.atm_signature_key,
+            atm_id,
+            signature,
+            algorithm
+        )
+
+        if not valid_signature:
+            raise Exception("Invalid ATM signature")
+
+        self.send_secure_message(
+            "ATM authenticated"
+        )
+
+        print(f"Authenticated Successfully: {atm_id}")
 
     def authenticate_user(self):
         user_id = self.receive_secure_message()
         password = self.receive_secure_message()
 
-        if not self.auth.is_valid_user_id(user_id):
+        if not self.auth.valid_user(user_id):
             self.send_secure_message("Invalid user ID")
             raise Exception("Invalid user ID")
 
-        login_success = self.auth.verify_user_login(
+        login_success = self.auth.verify_user(
             self.account_db,
             user_id,
             password
@@ -149,20 +184,42 @@ class ClientHandler:
             self.send_secure_message("\n".join(activity))
 
     def receive_secure_message(self):
-        encrypted_data = self.client_socket.recv(4096)
+
+        algorithm = (
+            self.client_socket.recv(16)
+            .decode()
+            .strip()
+        )
+
+        encrypted_data = self.client_socket.recv(256)
+
+        signature = self.client_socket.recv(256)
+        signature = signature.rstrip(b"\0")
 
         if not encrypted_data:
             raise Exception("Client disconnected")
 
-        return decrypt_message(
+        message = decrypt_message(
             self.bank_private_key,
             encrypted_data
         )
 
-    def send_secure_message(self, message):
-        encrypted_message = encrypt_message(
-            self.atm_public_key,
-            message
+        valid_signature = verify_signature(
+            self.atm_signature_key,
+            message,
+            signature,
+            algorithm
         )
 
+        if not valid_signature:
+            raise Exception("Invalid signature")
+
+        return message
+
+    def send_secure_message(self, message):
+
+        encrypted_message = encrypt_message(
+            self.atm_encryption_key,
+            message
+        )
         self.client_socket.send(encrypted_message)

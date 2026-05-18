@@ -1,5 +1,6 @@
 import socket
 import threading
+from client_handler import ClientHandler
 
 class BankServer:
                 
@@ -18,21 +19,12 @@ class BankServer:
 
             while True:
                 client_socket, addr = self.server_socket.accept()
+                handler = ClientHandler(client_socket=client_socket,address=addr)
                 print(f"Connected to : {addr}")
                 thread = threading.Thread(
-                     target=self.handle_client,
-                     args=(client_socket,)
+                     target=handler.handle
                 )
                 thread.start()
-        def handle_client(self,client_socket):
-            while True:
-                data_received = client_socket.recv(1024)
-                if not data_received:
-                     break
-                print(data_received.decode())
-                message = "Message has been received".encode()
-                client_socket.send(message)
-            client_socket.close()
         
 if __name__ == "__main__":
     server = BankServer()

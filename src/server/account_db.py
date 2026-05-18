@@ -29,13 +29,17 @@ class AccountDatabase:
         current_balance = self.accounts[user_id]["balance"]
         print(f"New balance: {current_balance}")
 
-    def withdraw(self,user_id,withraw_ammount):
+    def withdraw(self, user_id, withdraw_amount):
         current_balance = self.accounts[user_id]["balance"]
-        if(withraw_ammount > current_balance):
-            print("Withraw ammount exceeds current balance")
+
+        if withdraw_amount > current_balance:
+            print("Withdraw amount exceeds current balance")
             return False
-        current_balance -= withraw_ammount
-        print(f"Withrew: {withraw_ammount}")
-        current_balance = self.accounts[user_id]["balance"]    
-        print(f"New balance: {current_balance}")
+
+        self.accounts[user_id]["balance"] -= withdraw_amount
+
+        print(f"Withdrew: {withdraw_amount}")
+        print(f"New balance: {self.accounts[user_id]['balance']}")
+
+        return True
     

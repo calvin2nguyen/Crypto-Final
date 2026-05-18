@@ -21,6 +21,7 @@ bank_public_key = load_public_key(
     "keys/bank_public.pem"
 )
 
+
 atm_rsa_private_key = load_private_key(
     "keys/atm1_private.pem"
 )
@@ -62,13 +63,15 @@ def send_secure_message(client_socket, message):
         SIGNATURE_ALGORITHM
     )
 
-    client_socket.send(
+    signature = signature.ljust(256, b"\0")
+
+    client_socket.sendall(
         SIGNATURE_ALGORITHM.encode().ljust(16)
     )
 
-    client_socket.send(encrypted_message)
+    client_socket.sendall(encrypted_message)
 
-    client_socket.send(signature)
+    client_socket.sendall(signature)
 
 
 def receive_secure_message(client_socket):
@@ -98,6 +101,7 @@ send_secure_message(
 print(
     receive_secure_message(client)
 )
+
 
 user_id = input("User ID: ")
 
@@ -153,7 +157,7 @@ while True:
         )
 
     elif choice == "4":
-
+        
         send_secure_message(
             client,
             "QUIT"
